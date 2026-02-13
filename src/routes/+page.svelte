@@ -206,11 +206,6 @@
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
 
-  h1 {
-    margin: 0 0 10px 0;
-    font-size: 2.5em;
-  }
-
   h2 {
     margin: 0 0 5px 0;
     font-size: 1.5em;
@@ -466,10 +461,6 @@
 
     .status-box {
       grid-column: 1 / -1;
-    }
-
-    h1 {
-      font-size: 2em;
     }
 
     h2 {
