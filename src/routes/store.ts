@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-
+export const prerender = true;
 export interface Platform {
   id: string;
   designation: string;
