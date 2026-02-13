@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  busdisplay:
+    build: .
+    container_name: busdisplay
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
