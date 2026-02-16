@@ -115,7 +115,7 @@
 <div class="container">
   <header>
     <div class="header-left">
-      <h2>{$stopName}</h2>
+      <h2>{new Date($currentTime).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</h2>
       {#if $timeSinceLastUpdate}
         <p class="update-time">Refreshed {$timeSinceLastUpdate}</p>
       {/if}
@@ -184,7 +184,7 @@
 
   h2 {
     margin: 0 0 5px 0;
-    font-size: 1.5em;
+    font-size: 3em;
     font-weight: 400;
   }
 
