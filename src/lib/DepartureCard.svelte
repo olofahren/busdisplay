@@ -24,8 +24,12 @@
     <span class="direction">via {departure.route.direction}</span>
   </div>
   <div class="times">
+    <div class="platform-box">
+      <div class="label">Platform</div>
+    <div class="platform">{departure.realtime_platform.designation}</div>
+    </div>
     <div class="time-box" class:departs-soon={departsWithin5Minutes(departure.realtime, currentTime)}>
-      <div class="label">Departs</div>
+        <div class="label">Departs</div>
       {#if showDualTimes}
         <div class="time scheduled">{scheduledTimeString}</div>
         <div class="time actual">{realtimeString}</div>
@@ -34,10 +38,7 @@
       {/if}
       <div class="minutes-until">in {getMinutesUntilDeparture(departure.realtime, currentTime)}</div>
     </div>
-    <div class="platform-box">
-      <div class="label">Platform</div>
-      <div class="platform">{departure.realtime_platform.designation}</div>
-    </div>
+
   </div>
   <div class="status-box" class:delayed={departure.delay > 0} class:early={departure.delay < 0}>
     <span class="delay {getDelayClass(departure.delay)}">{getDelay(departure.delay)}</span>
@@ -48,11 +49,11 @@
   .departure-card {
     background: white;
     border-radius: 8px;
-    padding: 16px;
+    padding: 8px 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     display: grid;
     grid-template-columns: auto 1fr auto;
-    gap: 16px;
+    gap: 8px;
     align-items: start;
   }
 
@@ -104,11 +105,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
   }
 
   .route-number {
-    font-size: 1.8em;
+    font-size: 1.35em;
     font-weight: bold;
     color: #333;
     min-width: 50px;
@@ -116,9 +117,9 @@
   }
 
   .transport-mode {
-    font-size: 0.75em;
+    font-size: 0.65em;
     font-weight: bold;
-    padding: 4px 8px;
+    padding: 1px 5px;
     border-radius: 4px;
     text-align: center;
     background: #e10e1c;
@@ -128,22 +129,22 @@
   .destination {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .destination strong {
-    font-size: 1.1em;
+    font-size: 0.95em;
     color: #333;
   }
 
   .direction {
-    font-size: 0.85em;
+    font-size: 0.7em;
     color: #666;
   }
 
   .times {
     display: flex;
-    gap: 12px;
+    gap: 6px;
     align-items: flex-start;
   }
 
@@ -152,30 +153,32 @@
     text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 1px;
   }
 
   .label {
-    font-size: 0.75em;
+    font-size: 0.7em;
     color: #666;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
 
   .time {
-    font-size: 1.4em;
+    font-size: 1.1em;
     font-weight: bold;
     color: #333;
+    line-height: 1.05;
   }
 
   .time.scheduled {
     text-decoration: line-through;
-    font-size: 0.9em;
+    font-size: 0.75em;
     opacity: 0.6;
+    line-height: 1.05;
   }
 
   .time.actual {
-    font-size: 1.4em;
+    font-size: 1.1em;
     color: #e10e1c;
   }
 
@@ -184,9 +187,9 @@
   }
 
   .minutes-until {
-    font-size: 0.75em;
+    font-size: 0.65em;
     color: #666;
-    margin-top: 4px;
+    margin-top: 2px;
   }
 
   .departs-soon .minutes-until {
@@ -194,14 +197,14 @@
   }
 
   .platform {
-    font-size: 1.2em;
+    font-size: 1em;
     font-weight: bold;
     color: #e10e1c;
   }
 
   .status-box {
     text-align: center;
-    padding: 8px;
+    padding: 5px;
     border-radius: 6px;
     background: #f0f0f0;
   }
@@ -216,7 +219,11 @@
 
   .delay {
     font-weight: bold;
-    font-size: 0.9em;
+    font-size: 0.75em;
+    display: inline-block;
+    min-width: 6.5em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
   }
 
   .delay.on-time {

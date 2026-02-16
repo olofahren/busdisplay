@@ -6,7 +6,7 @@
   import { fetchBusData, fetchWeatherData } from '../lib/api';
 
   const BUS_API_URL = 'https://realtime-api.trafiklab.se/v1/departures/740026008?key=6afd99eae92849e68af272ea6aeafb43';
-  const WEATHER_API_URL = 'https://api.open-meteo.com/v1/forecast?latitude=58.58711&longitude=16.182502&daily=temperature_2m_min,temperature_2m_max,wind_speed_10m_max,uv_index_max,precipitation_probability_max&timezone=Europe%2FBerlin&forecast_days=1';
+  const WEATHER_API_URL = 'https://api.open-meteo.com/v1/forecast?latitude=58.58711&longitude=16.182502&daily=temperature_2m_min,temperature_2m_max,wind_speed_10m_max,uv_index_max,precipitation_probability_max&current=temperature_2m&timezone=Europe%2FBerlin&forecast_days=1&wind_speed_unit=ms';
 
   let weatherData: WeatherData | null = null;
   let weatherError: string | null = null;
@@ -72,10 +72,13 @@
     handleWeatherFetch();
 
     let fetchInterval: ReturnType<typeof setInterval> | undefined;
+    let weatherInterval: ReturnType<typeof setInterval> | undefined;
     
     if (isEarlyMorning()) {
       fetchInterval = setInterval(handleBusDataFetch, 2 * 60 * 1000);
     }
+
+    weatherInterval = setInterval(handleWeatherFetch, 4 * 60 * 60 * 1000);
     
     const timeInterval = setInterval(() => {
       currentTime.set(Date.now());
@@ -98,6 +101,7 @@
     
     return () => {
       if (fetchInterval) clearInterval(fetchInterval);
+      if (weatherInterval) clearInterval(weatherInterval);
       clearInterval(timeInterval);
     };
   });

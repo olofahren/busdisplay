@@ -25,10 +25,10 @@
   </div>
   <div class="weather-item">
     <span class="weather-label">Wind</span>
-    <span class="weather-value">{weather.daily.wind_speed_10m_max[0]} km/h</span>
+    <span class="weather-value">{weather.daily.wind_speed_10m_max[0]} m/s</span>
   </div>
   <div class="weather-item">
-    <span class="weather-label">Rain</span>
+    <span class="weather-label">Precipitation</span>
     <span class="weather-value">{weather.daily.precipitation_probability_max[0]}%</span>
   </div>
   <div class="weather-item">
