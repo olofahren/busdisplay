@@ -12,6 +12,8 @@
   let weatherError: string | null = null;
   let lastRefetchTime = 0;
   let displayedDepartureCount = 0;
+  let busRetryInterval: ReturnType<typeof setInterval> | undefined;
+  let weatherRetryInterval: ReturnType<typeof setInterval> | undefined;
 
   async function handleBusDataFetch() {
     loading.set(true);
@@ -20,9 +22,18 @@
       const data = await fetchBusData(BUS_API_URL);
       busData.set(data);
       currentTime.set(Date.now());
+      // Clear retry interval on successful fetch
+      if (busRetryInterval) {
+        clearInterval(busRetryInterval);
+        busRetryInterval = undefined;
+      }
     } catch (err) {
       error.set(err instanceof Error ? err.message : 'Unknown error');
       console.error(err);
+      // Set up retry interval if not already active
+      if (!busRetryInterval) {
+        busRetryInterval = setInterval(handleBusDataFetch, 60 * 1000);
+      }
     } finally {
       loading.set(false);
     }
@@ -32,9 +43,18 @@
     weatherError = null;
     try {
       weatherData = await fetchWeatherData(WEATHER_API_URL);
+      // Clear retry interval on successful fetch
+      if (weatherRetryInterval) {
+        clearInterval(weatherRetryInterval);
+        weatherRetryInterval = undefined;
+      }
     } catch (err) {
       weatherError = err instanceof Error ? err.message : 'Unknown error';
       console.error(err);
+      // Set up retry interval if not already active
+      if (!weatherRetryInterval) {
+        weatherRetryInterval = setInterval(handleWeatherFetch, 60 * 1000);
+      }
     }
   }
 
@@ -102,6 +122,8 @@
     return () => {
       if (fetchInterval) clearInterval(fetchInterval);
       if (weatherInterval) clearInterval(weatherInterval);
+      if (busRetryInterval) clearInterval(busRetryInterval);
+      if (weatherRetryInterval) clearInterval(weatherRetryInterval);
       clearInterval(timeInterval);
     };
   });
