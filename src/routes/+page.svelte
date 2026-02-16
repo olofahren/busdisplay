@@ -1,96 +1,99 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { busData, loading, error, departures, stopName, timeSinceLastUpdate, currentTime, type BusApiResponse } from './store.ts';
+  import { busData, loading, error, departures, stopName, timeSinceLastUpdate, currentTime } from './store';
+  import DepartureCard from '../lib/DepartureCard.svelte';
+  import WeatherWidget, { type WeatherData } from '../lib/WeatherWidget.svelte';
+  import { fetchBusData, fetchWeatherData } from '../lib/api';
 
-  const API_URL = 'https://realtime-api.trafiklab.se/v1/departures/740026008?key=6afd99eae92849e68af272ea6aeafb43';
+  const BUS_API_URL = 'https://realtime-api.trafiklab.se/v1/departures/740026008?key=6afd99eae92849e68af272ea6aeafb43';
+  const WEATHER_API_URL = 'https://api.open-meteo.com/v1/forecast?latitude=58.58711&longitude=16.182502&daily=temperature_2m_min,temperature_2m_max,wind_speed_10m_max,uv_index_max,precipitation_probability_max&timezone=Europe%2FBerlin&forecast_days=1';
 
-  async function fetchBusData(): Promise<void> {
+  let weatherData: WeatherData | null = null;
+  let weatherError: string | null = null;
+  let lastRefetchTime = 0;
+  let displayedDepartureCount = 0;
+
+  async function handleBusDataFetch() {
     loading.set(true);
     error.set(null);
     try {
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error('Failed to fetch bus data');
-      const data: BusApiResponse = await response.json();
+      const data = await fetchBusData(BUS_API_URL);
       busData.set(data);
       currentTime.set(Date.now());
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      error.set(errorMessage);
+      error.set(err instanceof Error ? err.message : 'Unknown error');
       console.error(err);
     } finally {
       loading.set(false);
     }
   }
 
-  function formatTime(timeString: string): string {
-    const date = new Date(timeString);
-    return date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  function getDelay(delay: number): string {
-    if (delay === 0) return 'On time';
-    if (delay > 0) return `${delay}s late`;
-    return `${Math.abs(delay)}s early`;
-  }
-
-  function getDelayClass(delay: number): 'on-time' | 'delayed' | 'early' {
-    if (delay === 0) return 'on-time';
-    if (delay > 0) return 'delayed';
-    return 'early';
-  }
-
-  function departsWithin5Minutes(departureTime: string): boolean {
-    const now = new Date();
-    const departureDate = new Date(departureTime);
-    const diffInSeconds = (departureDate.getTime() - now.getTime()) / 1000;
-    return diffInSeconds <= 5 * 60;
-  }
-
-  function getMinutesUntilDeparture(departureTime: string, delay: number): number {
-    const departureDate = new Date(departureTime).getTime();
-    const now = $currentTime;
-    const minutesUntil = Math.max(0, Math.ceil((departureDate - now) / 60000));
-    return minutesUntil;
-  }
-
-  function shouldRefreshFrequently(): boolean {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    return hours === 6 && minutes < 45;
+  async function handleWeatherFetch() {
+    weatherError = null;
+    try {
+      weatherData = await fetchWeatherData(WEATHER_API_URL);
+    } catch (err) {
+      weatherError = err instanceof Error ? err.message : 'Unknown error';
+      console.error(err);
+    }
   }
 
   function getLine74Departures() {
-    return $departures.filter(dep => dep.route.designation === '74');
+    const now = $currentTime;
+    return $departures
+      .filter(dep => {
+        const departureTime = new Date(dep.realtime).getTime();
+        return departureTime > now && dep.route.designation === '74';
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.realtime).getTime();
+        const bTime = new Date(b.realtime).getTime();
+        return aTime - bTime;
+      });
   }
 
   function getOtherDepartures() {
-    return $departures.filter(dep => dep.route.designation !== '74').slice(0, 10);
-  }
-
-  function getDisplayedDepartures() {
-    return [...getLine74Departures(), ...getOtherDepartures()];
-  }
-
-  function shouldShowDividerBefore(index: number): boolean {
-    const line74Count = getLine74Departures().length;
-    return line74Count > 0 && index === line74Count;
-  }
-
-  function isLine74(designation: string): boolean {
-    return designation === '74';
+    const now = $currentTime;
+    return $departures
+      .filter(dep => {
+        const departureTime = new Date(dep.realtime).getTime();
+        return departureTime > now && dep.route.designation !== '74';
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.realtime).getTime();
+        const bTime = new Date(b.realtime).getTime();
+        return aTime - bTime;
+      })
+      .slice(0, 10);
   }
 
   onMount(() => {
-    fetchBusData();
+    handleBusDataFetch();
+    handleWeatherFetch();
+
     let fetchInterval: ReturnType<typeof setInterval> | undefined;
     
-    if (shouldRefreshFrequently()) {
-      fetchInterval = setInterval(fetchBusData, 2 * 60 * 1000);
+    if (isEarlyMorning()) {
+      fetchInterval = setInterval(handleBusDataFetch, 2 * 60 * 1000);
     }
     
     const timeInterval = setInterval(() => {
       currentTime.set(Date.now());
+      
+      // Check if we have fewer departures than before (some have passed)
+      const now = Date.now();
+      const futureDepartures = $departures.filter(dep => {
+        const departureTime = new Date(dep.realtime).getTime();
+        return departureTime > now;
+      });
+      
+      // If we've lost departures (count decreased), refetch new data
+      if (futureDepartures.length < displayedDepartureCount && (now - lastRefetchTime) > 5000) {
+        lastRefetchTime = now;
+        handleBusDataFetch();
+      }
+      
+      displayedDepartureCount = futureDepartures.length;
     }, 1000);
     
     return () => {
@@ -98,13 +101,23 @@
       clearInterval(timeInterval);
     };
   });
+
+  function isEarlyMorning(): boolean {
+    const now = new Date();
+    return now.getHours() === 6 && now.getMinutes() < 45;
+  }
 </script>
 
 <div class="container">
   <header>
-    <h2>{$stopName}</h2>
-    {#if $timeSinceLastUpdate}
-      <p class="update-time">Refreshed {$timeSinceLastUpdate}</p>
+    <div class="header-left">
+      <h2>{$stopName}</h2>
+      {#if $timeSinceLastUpdate}
+        <p class="update-time">Refreshed {$timeSinceLastUpdate}</p>
+      {/if}
+    </div>
+    {#if weatherData}
+      <WeatherWidget weather={weatherData} />
     {/if}
   </header>
 
@@ -112,36 +125,11 @@
     <div class="loading">Loading departures...</div>
   {:else if $error}
     <div class="error">Error: {$error}</div>
-    <button on:click={fetchBusData}>Retry</button>
+    <button on:click={handleBusDataFetch}>Retry</button>
   {:else}
     <div class="departures-list">
       {#each getLine74Departures() as departure (departure.trip.trip_id)}
-        <div class="departure-card line-74">
-          <div class="route-info">
-            <span class="route-number">{departure.route.designation}</span>
-            <span class="transport-mode" class:bus={departure.route.transport_mode === 'BUS'} class:tram={departure.route.transport_mode === 'TRAM'}>
-              {departure.route.transport_mode}
-            </span>
-          </div>
-          <div class="destination">
-            <strong>{departure.route.destination.name}</strong>
-            <span class="direction">via {departure.route.direction}</span>
-          </div>
-          <div class="times">
-            <div class="time-box" class:departs-soon={departsWithin5Minutes(departure.realtime)}>
-              <div class="label">Departs</div>
-              <div class="time">{formatTime(departure.realtime)}</div>
-              <div class="minutes-until">in {getMinutesUntilDeparture(departure.realtime, departure.delay)} min</div>
-            </div>
-            <div class="platform-box">
-              <div class="label">Platform</div>
-              <div class="platform">{departure.realtime_platform.designation}</div>
-            </div>
-          </div>
-          <div class="status-box" class:delayed={departure.delay > 0} class:early={departure.delay < 0}>
-            <span class="delay {getDelayClass(departure.delay)}">{getDelay(departure.delay)}</span>
-          </div>
-        </div>
+        <DepartureCard {departure} currentTime={$currentTime} isLine74={true} />
       {/each}
       
       {#if getLine74Departures().length > 0 && getOtherDepartures().length > 0}
@@ -149,38 +137,13 @@
       {/if}
 
       {#each getOtherDepartures() as departure (departure.trip.trip_id)}
-        <div class="departure-card">
-          <div class="route-info">
-            <span class="route-number">{departure.route.designation}</span>
-            <span class="transport-mode" class:bus={departure.route.transport_mode === 'BUS'} class:tram={departure.route.transport_mode === 'TRAM'}>
-              {departure.route.transport_mode}
-            </span>
-          </div>
-          <div class="destination">
-            <strong>{departure.route.destination.name}</strong>
-            <span class="direction">via {departure.route.direction}</span>
-          </div>
-          <div class="times">
-            <div class="time-box" class:departs-soon={departsWithin5Minutes(departure.realtime)}>
-              <div class="label">Departs</div>
-              <div class="time">{formatTime(departure.realtime)}</div>
-              <div class="minutes-until">in {getMinutesUntilDeparture(departure.realtime, departure.delay)} min</div>
-            </div>
-            <div class="platform-box">
-              <div class="label">Platform</div>
-              <div class="platform">{departure.realtime_platform.designation}</div>
-            </div>
-          </div>
-          <div class="status-box" class:delayed={departure.delay > 0} class:early={departure.delay < 0}>
-            <span class="delay {getDelayClass(departure.delay)}">{getDelay(departure.delay)}</span>
-          </div>
-        </div>
+        <DepartureCard {departure} currentTime={$currentTime} isLine74={false} />
       {/each}
     </div>
   {/if}
 
   <footer>
-    <button on:click={fetchBusData} disabled={$loading}>Refresh</button>
+    <button on:click={handleBusDataFetch} disabled={$loading}>Refresh</button>
   </footer>
 </div>
 
@@ -200,10 +163,19 @@
   }
 
   header {
-    text-align: center;
     color: white;
     margin-bottom: 30px;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
   }
 
   h2 {
@@ -231,178 +203,6 @@
     opacity: 0.5;
   }
 
-  .departure-card {
-    background: white;
-    border-radius: 8px;
-    padding: 16px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 16px;
-    align-items: start;
-  }
-
-  .departure-card.line-74 {
-    background: rgb(255, 222, 185);
-    border: 2px solid #e10e1c;
-  }
-
-  .departure-card.line-74 .route-number,
-  .departure-card.line-74 .destination strong,
-  .departure-card.line-74 .direction,
-  .departure-card.line-74 .time,
-  .departure-card.line-74 .label {
-    color: #333;
-  }
-
-  .departure-card.line-74 .platform {
-    color: #e10e1c;
-  }
-
-  .departure-card.line-74 .status-box {
-    background: rgba(225, 14, 28, 0.1);
-  }
-
-  .departure-card.line-74 .delay {
-    color: #333;
-  }
-
-  .departs-soon {
-    background: #e10e1c;
-    color: rgb(255, 255, 255);
-    padding: 4px;
-    border-radius: 6px;
-  }
-
-  .departs-soon .label,
-  .departs-soon .time {
-    color: white;
-  }
-
-  .minutes-until {
-    font-size: 0.75em;
-    color: #666;
-    margin-top: 4px;
-  }
-
-  .departs-soon .minutes-until {
-    color: white;
-  }
-
-  .route-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .route-number {
-    font-size: 1.8em;
-    font-weight: bold;
-    color: #333;
-    min-width: 50px;
-    text-align: center;
-  }
-
-  .transport-mode {
-    font-size: 0.75em;
-    font-weight: bold;
-    padding: 4px 8px;
-    border-radius: 4px;
-    text-align: center;
-  }
-
-  .transport-mode.bus {
-    background: #e10e1c;
-    color: white;
-  }
-
-  .transport-mode.tram {
-    background: #e10e1c;
-    color: white;
-  }
-
-  .destination {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .destination strong {
-    font-size: 1.1em;
-    color: #333;
-  }
-
-  .direction {
-    font-size: 0.85em;
-    color: #666;
-  }
-
-  .times {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-  }
-
-  .time-box,
-  .platform-box {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .label {
-    font-size: 0.75em;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .time {
-    font-size: 1.4em;
-    font-weight: bold;
-    color: #333;
-  }
-
-  .platform {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #e10e1c;
-  }
-
-  .status-box {
-    text-align: center;
-    padding: 8px;
-    border-radius: 6px;
-    background: #f0f0f0;
-  }
-
-  .status-box.delayed {
-    background: #ffe0e0;
-  }
-
-  .status-box.early {
-    background: #e0f0e0;
-  }
-
-  .delay {
-    font-weight: bold;
-    font-size: 0.9em;
-  }
-
-  .delay.on-time {
-    color: #27ae60;
-  }
-
-  .delay.delayed {
-    color: #e10e1c;
-  }
-
-  .delay.early {
-    color: #27ae60;
-  }
-
   .loading,
   .error {
     text-align: center;
@@ -410,13 +210,6 @@
     background: white;
     border-radius: 8px;
     font-size: 1.1em;
-  }
-
-  .loading {
-    color: #e10e1c;
-  }
-
-  .error {
     color: #e10e1c;
   }
 
@@ -449,18 +242,14 @@
   }
 
   @media (max-width: 600px) {
-    .departure-card {
-      grid-template-columns: auto 1fr;
-      gap: 12px;
+    header {
+      flex-direction: column;
+      align-items: center;
     }
 
-    .times {
-      grid-column: 1 / -1;
-      justify-content: space-between;
-    }
-
-    .status-box {
-      grid-column: 1 / -1;
+    .header-left {
+      text-align: center;
+      width: 100%;
     }
 
     h2 {
