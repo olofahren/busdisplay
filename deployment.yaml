@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simple-webapp-busdisplay
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app: simple-webapp-busdisplay
+    spec:
+      containers:
+      - name: simple-webapp-busdisplay
+        image: simple-webapp-busdisplay:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80   #
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
