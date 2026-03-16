@@ -2,6 +2,6 @@ services:
   busdisplay:
     build: .
     container_name: busdisplay
-    ports:
-      - "3000:80"
+    expose:
+      - "80"
     restart: unless-stopped
