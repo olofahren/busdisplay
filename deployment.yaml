@@ -19,7 +19,13 @@ spec:
         image: simple-webapp-busdisplay:latest
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 80   #
+        - containerPort: 3000
+        env:
+        - name: TRAFIKLAB_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: busdisplay-secrets
+              key: TRAFIKLAB_API_KEY
         resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
