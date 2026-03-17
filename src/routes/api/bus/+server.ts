@@ -17,7 +17,7 @@ export const GET: RequestHandler = async ({ fetch }) => {
   const response = await fetch(url.toString());
 
   if (!response.ok) {
-    return json({ error: 'Failed to fetch bus data' }, { status: response.status });
+    return json({ error: 'Failed to fetch bus data' }, { status: response.status }, );
   }
 
   const data = await response.json();
