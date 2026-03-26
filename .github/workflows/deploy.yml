@@ -48,7 +48,10 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             cd /opt/busdisplay
-            echo "IMAGE_TAG=${{ github.sha }}" > .env
+            cat > .env <<EOF
+            IMAGE_TAG=${{ github.sha }}
+            API_KEY=${{ secrets.API_KEY }}
+            EOF
             docker compose pull
             docker compose up -d
             docker image prune -f
