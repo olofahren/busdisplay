@@ -47,6 +47,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
           script: |
+            echo "creating .env file on VPS"
             cd /opt/busdisplay
             cat > .env <<EOF
             IMAGE_TAG=${{ github.sha }}
