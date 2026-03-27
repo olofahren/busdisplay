@@ -16,7 +16,7 @@
 
 <div class="weather-widget">
   <div class="weather-item">
-  <p>THIS IS A TEST</p>
+  <p>THIS IS A TEST 1</p>
     <span class="weather-label">High</span>
     <span class="weather-value">{weather.daily.temperature_2m_max[0]}°C</span>
   </div>
