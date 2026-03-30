@@ -80,12 +80,22 @@ jobs:
 
             docker image prune -f
             echo "Deployed PR #$PR as https://$HOST"
-            #create a comment on the PR with the preview URL
-            curl -s -X POST \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d "{\"body\": \"Preview deployed at https://$HOST\"}" \
-              "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
+
+
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Comment
+        if: github.event.action != 'closed'
+        run: |
+          # Use GitHub API to create a comment on the PR
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          COMMENT="✅ Preview deployed for PR #$PR_NUMBER: https://$PR_NUMBER-pr.${{ env.PREVIEW_DOMAIN_SUFFIX }} "
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          COMMENT_URL="https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments"
+
+          curl -s -H "Authorization: token ${GITHUB_TOKEN}" -X POST $COMMENT_URL -d "{\"body\":\"$COMMENT\"}"
+
 
   cleanup:
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
