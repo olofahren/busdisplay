@@ -62,7 +62,7 @@ jobs:
             HOST="$PR-pr.${{ env.PREVIEW_DOMAIN_SUFFIX }}"
 
             docker pull "$IMAGE"
-            docker rm -f "$CONTAINER" || true
+            docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
             docker run -d \
               --name "$CONTAINER" \
@@ -80,6 +80,12 @@ jobs:
 
             docker image prune -f
             echo "Deployed PR #$PR as https://$HOST"
+            #create a comment on the PR with the preview URL
+            curl -s -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"body\": \"Preview deployed at https://$HOST\"}" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
 
   cleanup:
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
@@ -100,8 +106,8 @@ jobs:
             CONTAINER='${{ env.CONTAINER_PREFIX }}-'"$PR"
             IMAGE='${{ env.IMAGE_NAME }}:pr-'"$PR"
 
-            docker rm -f "$CONTAINER" || true
-            docker image rm "$IMAGE" || true
+            docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+            docker image rm "$IMAGE" >/dev/null 2>&1 || true
             docker image prune -f
 
             echo "Removed preview deployment for PR #$PR"
