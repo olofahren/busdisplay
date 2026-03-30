@@ -62,7 +62,7 @@ jobs:
             HOST="$PR-pr.${{ env.PREVIEW_DOMAIN_SUFFIX }}"
 
             docker pull "$IMAGE"
-            docker rm -f "$CONTAINER" || true
+            docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
             docker run -d \
               --name "$CONTAINER" \
@@ -80,6 +80,33 @@ jobs:
 
             docker image prune -f
             echo "Deployed PR #$PR as https://$HOST"
+
+      - name: Create or update comment
+        if: github.event.action != 'closed'
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          MARKER="<!-- pr-preview-deployment-comment -->"
+          COMMENT="✅ Preview deployed for PR #$PR_NUMBER: https://$PR_NUMBER-pr.${{ env.PREVIEW_DOMAIN_SUFFIX }}\n\n$MARKER"
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          COMMENTS_URL="https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments"
+
+          EXISTING_COMMENT_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" "$COMMENTS_URL?per_page=100" \
+            | jq -r --arg marker "$MARKER" --arg login "github-actions[bot]" '.[] | select((.body | contains($marker)) and (.user.login == $login)) | .id' \
+            | head -n 1)
+
+          PAYLOAD=$(jq -n --arg body "$COMMENT" '{body:$body}')
+
+          if [ -n "$EXISTING_COMMENT_ID" ] && [ "$EXISTING_COMMENT_ID" != "null" ]; then
+            curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -X PATCH "https://api.github.com/repos/${{ github.repository }}/issues/comments/${EXISTING_COMMENT_ID}" \
+              -d "$PAYLOAD" >/dev/null
+          else
+            curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -X POST "$COMMENTS_URL" \
+              -d "$PAYLOAD" >/dev/null
+          fi
 
   cleanup:
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
@@ -100,8 +127,8 @@ jobs:
             CONTAINER='${{ env.CONTAINER_PREFIX }}-'"$PR"
             IMAGE='${{ env.IMAGE_NAME }}:pr-'"$PR"
 
-            docker rm -f "$CONTAINER" || true
-            docker image rm "$IMAGE" || true
+            docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+            docker image rm "$IMAGE" >/dev/null 2>&1 || true
             docker image prune -f
 
             echo "Removed preview deployment for PR #$PR"
