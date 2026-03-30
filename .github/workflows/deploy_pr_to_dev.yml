@@ -91,7 +91,7 @@ jobs:
           COMMENTS_URL="https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments"
 
           EXISTING_COMMENT_ID=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" "$COMMENTS_URL?per_page=100" \
-            | jq -r --arg marker "$MARKER" '.[] | select(.body | contains($marker)) | .id' \
+            | jq -r --arg marker "$MARKER" --arg login "github-actions[bot]" '.[] | select((.body | contains($marker)) and (.user.login == $login)) | .id' \
             | head -n 1)
 
           if [ -n "$EXISTING_COMMENT_ID" ] && [ "$EXISTING_COMMENT_ID" != "null" ]; then
