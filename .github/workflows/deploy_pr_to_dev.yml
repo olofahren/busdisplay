@@ -94,14 +94,18 @@ jobs:
             | jq -r --arg marker "$MARKER" --arg login "github-actions[bot]" '.[] | select((.body | contains($marker)) and (.user.login == $login)) | .id' \
             | head -n 1)
 
+          PAYLOAD=$(jq -n --arg body "$COMMENT" '{body:$body}')
+
           if [ -n "$EXISTING_COMMENT_ID" ] && [ "$EXISTING_COMMENT_ID" != "null" ]; then
             curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/json" \
               -X PATCH "https://api.github.com/repos/${{ github.repository }}/issues/comments/${EXISTING_COMMENT_ID}" \
-              -d "{\"body\":\"$COMMENT\"}" >/dev/null
+              -d "$PAYLOAD" >/dev/null
           else
             curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/json" \
               -X POST "$COMMENTS_URL" \
-              -d "{\"body\":\"$COMMENT\"}" >/dev/null
+              -d "$PAYLOAD" >/dev/null
           fi
 
   cleanup:
